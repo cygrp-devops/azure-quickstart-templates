@@ -1,124 +1,167 @@
 {
-    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-    "contentVersion": "1.0.0.0",
-    "parameters": {
-        "administratorLogin": {
-        "type": "string",
-        "metadata": {
-            "description": "The admin user of the SQL Server"
-        }
-        },
-        "administratorLoginPassword": {
-        "type": "securestring",
-        "metadata": {
-            "description": "The password of the admin user of the SQL Server"
-        }
-        },
-        "databaseName": {
-        "type": "string",
-        "defaultValue": "sampledb",
-        "metadata": {
-            "description": "The name of the new database to create."
-        }
-        },
-        "collation": {
-        "type": "string",
-        "defaultValue": "SQL_Latin1_General_CP1_CI_AS",
-        "metadata": {
-            "description": "The database collation for governing the proper use of characters."
-        }
-        },
-        "edition": {
-        "type": "string",
-        "defaultValue": "Basic",
-        "allowedValues": [
-            "Basic",
-            "Standard",
-            "Premium"
-        ],
-        "metadata": {
-            "description": "The type of database to create."
-        }
-        },
-        "maxSizeBytes": {
-        "type": "string",
-        "defaultValue": "1073741824",
-        "metadata": {
-            "description": "The maximum size, in bytes, for the database"
-        }
-        },
-        "requestedServiceObjectiveName": {
-        "type": "string",
-        "defaultValue": "Basic",
-        "allowedValues": [
-            "Basic",
-            "S0",
-            "S1",
-            "S2",
-            "P1",
-            "P2",
-            "P3"
-        ],
-        "metadata": {
-            "description": "Describes the performance level for Edition"
-        }
-        }
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "User name for the Virtual Machine."
+      }
     },
-    "variables" : {
-        "sqlserverName": "[concat('sqlserver', uniqueString(resourceGroup().id))]"
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
     },
-    "resources": [
-        {
-        "name": "[variables('sqlserverName')]",
-        "type": "Microsoft.Sql/servers",
-        "location": "[resourceGroup().location]",
-        "tags": {
-            "displayName": "SqlServer"
-        },
-        "apiVersion": "2014-04-01-preview",
-            "properties": {
-            "administratorLogin": "[parameters('administratorLogin')]",
-            "administratorLoginPassword": "[parameters('administratorLoginPassword')]"
-        },
-        "resources": [
-            {
-            "name": "[parameters('databaseName')]",
-            "type": "databases",
-            "location": "[resourceGroup().location]",
-            "tags": {
-                "displayName": "Database"
-            },
-            "apiVersion": "2014-04-01-preview",
-            "dependsOn": [
-                "[variables('sqlserverName')]"
-            ],
-            "properties": {
-                "edition": "[parameters('edition')]",
-                "collation": "[parameters('collation')]",
-                "maxSizeBytes": "[parameters('maxSizeBytes')]",
-                "requestedServiceObjectiveName": "[parameters('requestedServiceObjectiveName')]"
-            }
-            },
-            {
-            "type": "firewallrules",
-            "apiVersion": "2014-04-01-preview",
-            "dependsOn": [
-                "[variables('sqlserverName')]"
-            ],
-            "location": "[resourceGroup().location]",
-            "name": "AllowAllWindowsAzureIps",
-            "properties": {
-                "endIpAddress": "0.0.0.0",
-                "startIpAddress": "0.0.0.0"
-            }
-            }
-        ]
-        }
-    ],
-    "outputs": {
-        "sqlSvrFqdn": {
-        "type": "string",
-        "value": "[reference(concat('Microsoft.Sql/servers/', variables('sqlserverName'))).fullyQualifiedDomainName]"
-        }
+	"mysqlPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the openvpn user."
+      }
+    },
+	"vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_A1",
+      "allowedValues": [
+	    "Standard_A1",
+		"Standard_A2",
+		"Standard_A3",
+        "Standard_D1",
+        "Standard_D3",
+		"Standard_D4"
+      ],
+      "metadata": {
+        "description": "The size of the virtual machines used when provisioning"
+      }
+    },
+    "ubuntuOSVersion": {
+      "type": "string",
+      "defaultValue": "14.04.2-LTS",
+      "allowedValues": [
+        "12.04.5-LTS",
+        "14.04.2-LTS",
+        "15.10"
+      ],
+      "metadata": {
+        "description": "The Ubuntu version for the VM. This will pick a fully patched image of this given Ubuntu version. Allowed values: 12.04.5-LTS, 14.04.2-LTS, 15.10."
+      }
+    },
+	"storageAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Storage Account Name"
+      }
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "metadata": {
+        "description": "Virtual Network Name"
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "Subnet Name"
+      }
     }
+  },
+  "variables": {
+    "imagePublisher": "Canonical",
+    "imageOffer": "UbuntuServer",
+    "OSDiskName": "osdiskforlinuxsimple1",
+    "nicName": "myVMNic",
+	"apiVersion": "2015-06-15",
+    "vmStorageAccountContainerName": "vhds",
+    "location" : "[resourceGroup().location]",
+    "vmName": "mySqlVM",
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',parameters('virtualNetworkName'))]",
+    "subnetRef": "[concat(variables('vnetID'),'/subnets/',parameters('subnetName'))]"
+  },
+  "resources": [  
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",              
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "[variables('apiVersion')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[variables('vmName')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[parameters('ubuntuOSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "name": "osdisk",
+            "vhd": {
+              "uri": "[concat('http://',parameters('storageAccountName'),'.blob.core.windows.net/',variables('vmStorageAccountContainerName'),'/',variables('OSDiskName'),'.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(variables('vmName'),'/newuserscript')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[variables('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.OSTCExtensions",
+        "type": "CustomScriptForLinux",
+        "typeHandlerVersion": "1.4",
+        "settings": {
+		  "autoUpgradeMinorVersion": true,
+          "fileUris": [
+            "https://raw.githubusercontent.com/Azure/azure-quickstart-templates/master/mysql-standalone-server-ubuntu/install_mysql_server_5.6.sh"
+          ]
+		},
+		"protectedSettings": {
+          "commandToExecute": "[concat('bash install_mysql_server_5.6.sh ', parameters('mysqlPassword'))]"
+		}
+      }
+    }
+  ]
 }
