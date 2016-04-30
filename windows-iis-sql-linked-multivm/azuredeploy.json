@@ -16,7 +16,16 @@
     "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
     "subnet1Ref": "[concat(variables('vnetID'),'/subnets/',variables('subnet1Name'))]",
     "subnet2Ref": "[concat(variables('vnetID'),'/subnets/',variables('subnet2Name'))]",
-    "apiVersion": "2015-06-15"
+    "apiVersion": "2015-06-15",
+    "sharedBaseUrl" : "https://raw.githubusercontent.com/vicperdana/azure-quickstart-templates/master/windows-iis-sql-linked-multivm/nested/",
+    "secondTemplate" : {
+      "templateUrl" : "[concat(variables('sharedBaseUrl'),'azuredeploy-web.json')]",
+      "paramUrl" : "[concat(variables('sharedBaseUrl'),'azuredeploy-web.parameters.json')]"
+    },
+    "thirdTemplate" : {
+      "templateUrl" : "[concat(variables('sharedBaseUrl'),'azuredeploy-db.json')]",
+      "paramUrl" : "[concat(variables('sharedBaseUrl'),'azuredeploy-db.parameters.json')]"
+    }
   },
   "resources": [
     {
@@ -54,8 +63,46 @@
           }
         ]
       }
+    },
+    {
+      "apiVersion": "2015-01-01",
+      "name": "webserversLinked",
+      "type": "Microsoft.Resources/deployments",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('secondTemplate').templateUrl]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parametersLink": {
+          "uri": "[variables('secondTemplate').paramUrl]",
+          "contentVersion": "1.0.0.0"
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-01-01",
+      "name": "dbserverLinked",
+      "type": "Microsoft.Resources/deployments",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', variables('virtualNetworkName'))]"
+      ],
+      "properties": {
+        "mode": "Incremental",
+        "templateLink": {
+          "uri": "[variables('thirdTemplate').templateUrl]",
+          "contentVersion": "1.0.0.0"
+        },
+        "parametersLink": {
+          "uri": "[variables('thirdTemplate').paramUrl]",
+          "contentVersion": "1.0.0.0"
+        }
+      }
     }
-  ],
-  "outputs": {
-  }
+  ]
 }
